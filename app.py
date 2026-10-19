@@ -9,15 +9,14 @@ import matplotlib.pyplot as plt
 plt.style.use('seaborn-v0_8-whitegrid' if 'seaborn-v0_8-whitegrid' in plt.style.available else 'default')
 
 # 網頁頁面標題與寬度設定
-st.set_page_config(page_title="理財機器人 - 動態資產配置系統", layout="wide")
+st.set_page_config(page_title="理財機器人 - 多元動態資產配置系統", layout="wide")
 
-st.title("🤖 理財機器人：動態問卷與資產配置最佳化系統")
-st.markdown("本系統整合**投資人風險屬性動態評估 (Investor Profiling)** 與 **現代投資組合理論 (MPT)**，即時計算最佳資產配置[cite: 1, 2]。")
+st.title("🤖 理財機器人：多元風險問卷與資產配置最佳化系統")
+st.markdown("本系統整合**多元投資人風險屬性動態評估 (Investor Profiling)** 與 **現代投資組合理論 (MPT)**，即時計算專屬最佳資產配置[cite: 1, 2]。")
 
 # ==========================================
 # 1. 自動取得相對路徑與資料載入模組
 # ==========================================
-# 取得目前 app.py 檔案所在的資料夾相對目錄
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_EXCEL_PATH = os.path.join(BASE_DIR, '20261005095516.xlsx')
 
@@ -26,20 +25,16 @@ uploaded_file = st.sidebar.file_uploader("可自訂上傳 Excel/CSV 價格資料
 
 @st.cache_data
 def load_data(file):
-    """
-    資料載入函數：若使用者有上傳檔案則讀取上傳檔，否則自動讀取專案同目錄下的預設 Excel 檔
-    """
     if file is not None:
         if file.name.endswith('.csv'):
             return pd.read_csv(file)
         else:
             return pd.read_excel(file)
     else:
-        # 使用相對路徑讀取專案資料夾內的預設 Excel 檔
         if os.path.exists(DEFAULT_EXCEL_PATH):
             return pd.read_excel(DEFAULT_EXCEL_PATH)
         else:
-            st.error(f"找不到預設資料檔 `20261005095516.xlsx`，請確認該檔案是否已上傳至專案根目錄中[cite: 5, 7]。")
+            st.error("找不到預設資料檔 `20261005095516.xlsx`，請確認檔案是否在根目錄中[cite: 5, 7]。")
             return None
 
 df_raw = load_data(uploaded_file)
@@ -47,7 +42,6 @@ df_raw = load_data(uploaded_file)
 if df_raw is None:
     st.stop()
 
-# 顯示資料載入狀態提醒
 if uploaded_file is None:
     st.sidebar.success("已自動載入專案預設資料檔：`20261005095516.xlsx`[cite: 2]")
 else:
@@ -61,51 +55,78 @@ returns = df_pivot.pct_change().dropna()
 mean_returns_monthly = returns.mean()
 cov_matrix_monthly = returns.cov()
 
-# 投資組合績效計算函數 (年化因子 = 12)
 def portfolio_performance(weights):
     ret = np.sum(mean_returns_monthly * weights) * 12
     vol = np.sqrt(np.dot(weights.T, np.dot(cov_matrix_monthly * 12, weights)))
     return ret, vol
 
 # ==========================================
-# 2. 主頁面：動態問卷模組
+# 2. 多元動態評估問卷 (不顯示選項分數)
 # ==========================================
-st.subheader("📋 2. 投資人風險屬性動態評估問卷")
+st.subheader("📋 2. 投資人風險屬性動態問卷")
+st.caption("請根據您的真實投資狀況選擇最符合的選項，系統將自動計算您的風險承受類型：")
 
-col1, col2, col3 = st.columns(3)
+col1, col2 = st.columns(2)
 
 with col1:
-    q1 = st.radio("1. 您的投資年齡層？", 
-                  ["60歲以上 (1分)", "40-59歲 (2分)", "40歲以下 (3分)"])
-    score1 = 1 if "1分" in q1 else (2 if "2分" in q1 else 3)
+    q1 = st.radio(
+        "1. 您的年齡與人生階段狀況？",
+        ["65歲以上 / 已退休或準備退休", "50–64歲 / 步入職涯成熟期", "35–49歲 / 家庭與事業穩定成長期", "34歲以下 / 職場新秀或個人衝刺期"]
+    )
+    
+    q2 = st.radio(
+        "2. 您進行這筆投資的主要目的為何？",
+        ["抵抗通膨，維持資產購買力與安全", "賺取穩定定期配息，補充日常現金流", "穩健累積資產，實現中長期財務目標", "追求資產大幅增值與高資本利得"]
+    )
+    
+    q3 = st.radio(
+        "3. 您過去的投資經驗與工具熟悉度？",
+        ["幾乎沒有投資經驗，僅習慣銀行定存/儲蓄險", "主要投資定存、債券或保守型基金", "具備股票、ETF、共同基金等多元投資經驗", "熟練操作股票、衍生性商品、高波動標的"]
+    )
 
 with col2:
-    q2 = st.radio("2. 您的投資主要目標？", 
-                  ["資產保值與穩定收益 (1分)", "穩健成長 (2分)", "追求最大資本利得 (3分)"])
-    score2 = 1 if "1分" in q2 else (2 if "2分" in q2 else 3)
+    q4 = st.radio(
+        "4. 若未來一年市場大跌，資產出現 20% 短期帳面虧損，您的反應是？",
+        ["極度焦慮，會立即全部賣出以防虧損擴大", "感到不安，會減碼賣出大部分高風險資產", "保持觀望，繼續持有並等待市場回升", "視為難得的加碼時機，逢低分批加碼"]
+    )
+    
+    q5 = st.radio(
+        "5. 您對投資組合報酬與波動度的偏好？",
+        ["偏好極低波動，即使年化報酬率較低也能接受", "接受微幅波動，換取高於定存的合理收益", "追求報酬與風險的平衡，期望長期穩定增長", "願意承擔較大價格波動，以換取極致的總報酬"]
+    )
 
-with col3:
-    q3 = st.radio("3. 若短期出現 20% 虧損，您會？", 
-                  ["全部賣出止損 (1分)", "持續持有觀察 (2分)", "逢低加碼買進 (3分)"])
-    score3 = 1 if "1分" in q3 else (2 if "2分" in q3 else 3)
+# 內部分數映射邏輯 (介面隱藏)
+score_map_1 = {"65歲以上 / 已退休或準備退休": 1, "50–64歲 / 步入職涯成熟期": 2, "35–49歲 / 家庭與事業穩定成長期": 3, "34歲以下 / 職場新秀或個人衝刺期": 4}
+score_map_2 = {"抵抗通膨，維持資產購買力與安全": 1, "賺取穩定定期配息，補充日常現金流": 2, "穩健累積資產，實現中長期財務目標": 3, "追求資產大幅增值與高資本利得": 4}
+score_map_3 = {"幾乎沒有投資經驗，僅習慣銀行定存/儲蓄險": 1, "主要投資定存、債券或保守型基金": 2, "具備股票、ETF、共同基金等多元投資經驗": 3, "熟練操作股票、衍生性商品、高波動標的": 4}
+score_map_4 = {"極度焦慮，會立即全部賣出以防虧損擴大": 1, "感到不安，會減碼賣出大部分高風險資產": 2, "保持觀望，繼續持有並等待市場回升": 3, "視為難得的加碼時機，逢低分批加碼": 4}
+score_map_5 = {"偏好極低波動，即使年化報酬率較低也能接受": 1, "接受微幅波動，換取高於定存的合理收益": 2, "追求報酬與風險的平衡，期望長期穩定增長": 3, "願意承擔較大價格波動，以換取極致的總報酬": 4}
 
-total_score = score1 + score2 + score3
+total_score = score_map_1[q1] + score_map_2[q2] + score_map_3[q3] + score_map_4[q4] + score_map_5[q5]
 
-# 風險等級判定與 MPT 目標對接
-if total_score <= 4:
-    profile_name = "保守型 (Conservative)"
+# 擴充為 5 種投資人風格 (Profiles)
+if total_score <= 7:
+    profile_name = "🛡️ 極度保守型 (Very Conservative)"
     target_type = "MVP (最小變異數)"
-    gamma = 10.0
-elif total_score <= 7:
-    profile_name = "穩健型 (Moderate)"
+    gamma = 15.0
+elif total_score <= 11:
+    profile_name = "🌿 保守型 (Conservative)"
+    target_type = "Low Volatility (低波動偏好)"
+    gamma = 6.0
+elif total_score <= 14:
+    profile_name = "⚖️ 穩健型 (Moderate)"
     target_type = "Max Sharpe (最大夏普比率)"
-    gamma = 3.0
+    gamma = 2.5
+elif total_score <= 17:
+    profile_name = "🚀 成長型 (Growth)"
+    target_type = "High Growth (資本成長)"
+    gamma = 1.0
 else:
-    profile_name = "積極型 (Aggressive)"
+    profile_name = "🔥 積極型 (Aggressive)"
     target_type = "Max Return (最大報酬)"
-    gamma = 0.5
+    gamma = 0.2
 
-st.info(f"💡 **問卷總分：{total_score} 分** ｜ 屬性判定：**{profile_name}** ｜ MPT 最佳化策略：**{target_type}**")
+st.info(f"💡 評估結果：屬性判定為 **{profile_name}** ｜ MPT 最佳化策略：**{target_type}**")
 
 # ==========================================
 # 3. MPT 最佳化演算法計算
@@ -119,6 +140,7 @@ if "MVP" in target_type:
 elif "Max Sharpe" in target_type:
     obj_func = lambda w: -(portfolio_performance(w)[0] - 0.015) / portfolio_performance(w)[1]
 else:
+    # 效用函數: U = Return - 0.5 * gamma * Risk^2
     obj_func = lambda w: -(portfolio_performance(w)[0] - 0.5 * gamma * (portfolio_performance(w)[1]**2))
 
 res = sco.minimize(obj_func, init_guess, method='SLSQP', bounds=bounds, 
@@ -145,7 +167,7 @@ with chart_col1:
     st.write("#### 🎯 最適資產配置比例")
     fig1, ax1 = plt.subplots(figsize=(6, 5))
     df_weights = pd.Series(w_opt, index=df_pivot.columns)
-    df_weights_filter = df_weights[df_weights > 0.001]  # 濾除 0% 的權重
+    df_weights_filter = df_weights[df_weights > 0.001]
     ax1.pie(df_weights_filter, labels=df_weights_filter.index, autopct='%1.1f%%', startangle=140)
     ax1.axis('equal')
     st.pyplot(fig1)
@@ -168,7 +190,7 @@ with chart_col2:
 
     fig2, ax2 = plt.subplots(figsize=(6, 5))
     ax2.plot(ef_vols, target_returns, 'b--', label='Efficient Frontier')
-    ax2.scatter(vol_opt, ret_opt, color='red', s=150, zorder=5, label=f'Your Portfolio ({profile_name.split()[0]})')
+    ax2.scatter(vol_opt, ret_opt, color='red', s=150, zorder=5, label=f'Your Portfolio')
     ax2.set_xlabel('Portfolio Risk / Volatility (σ)')
     ax2.set_ylabel('Expected Return (E[R])')
     ax2.legend()
